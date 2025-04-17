@@ -1,0 +1,29 @@
+{
+  "name": "fast-mcp-demo",
+  "version": "1.0.0",
+  "description": "A demo of FastMCP with getWeather scenario",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start:server": "node dist/scripts/run-server.js",
+    "start:client": "node dist/scripts/run-client.js",
+    "start:host": "node dist/scripts/run-host.js",
+    "dev": "ts-node src/index.ts"
+  },
+  "keywords": [
+    "mcp",
+    "fastmcp",
+    "demo"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "fastmcp": "github:punkpeye/fastmcp",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
