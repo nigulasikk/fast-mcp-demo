@@ -1,5 +1,6 @@
 import http from 'http';
 import { getWeatherTool } from '../tools/getWeather';
+import { chatTool } from '../tools/chatTool';
 import { URL } from 'url';
 
 export class McpServer {
@@ -13,6 +14,7 @@ export class McpServer {
     this.server = http.createServer(this.handleRequest.bind(this));
     
     this.registerTool(getWeatherTool);
+    this.registerTool(chatTool);
   }
 
   registerTool(tool: any) {
