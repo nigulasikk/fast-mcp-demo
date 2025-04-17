@@ -8,6 +8,7 @@
     "start:server": "node dist/scripts/run-server.js",
     "start:client": "node dist/scripts/run-client.js",
     "start:host": "node dist/scripts/run-host.js",
+    "start:chat": "ts-node src/scripts/run-chat.ts",
     "dev": "ts-node src/index.ts"
   },
   "keywords": [
