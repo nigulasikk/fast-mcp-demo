@@ -10,8 +10,8 @@ export class ChatPage {
   private client: McpClient;
   private messages: ChatMessage[] = [];
   private container: HTMLElement;
-  private messageList: HTMLElement;
-  private inputField: HTMLInputElement;
+  private messageList!: HTMLElement;
+  private inputField!: HTMLInputElement;
   private username: string = "User";
 
   constructor(serverUrl: string, containerId: string) {
@@ -239,7 +239,7 @@ export class ChatPage {
     } catch (error) {
       console.error('Error sending message:', error);
       this.addMessageToUI({
-        message: `Error: ${error.message}`,
+        message: `Error: ${error instanceof Error ? error.message : String(error)}`,
         sender: 'System',
         timestamp: new Date().toISOString()
       });
