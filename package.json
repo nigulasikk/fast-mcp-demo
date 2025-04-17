@@ -19,6 +19,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "dashscope-node": "^0.2.2",
+    "dotenv": "^16.5.0",
     "fastmcp": "github:punkpeye/fastmcp",
     "zod": "^3.22.4"
   },

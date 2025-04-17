@@ -2,6 +2,9 @@ import { McpServer } from '../server/server';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as http from 'http';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
 
 const PORT = 3000;
 const UI_PORT = 8080;

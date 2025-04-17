@@ -199,43 +199,8 @@ export class ChatPage {
         message: messageText,
         sender: this.username
       });
-
-      const systemMessage: ChatMessage = {
-        message: `I received your message: "${messageText}"`,
-        sender: 'System',
-        timestamp: new Date().toISOString()
-      };
-      this.addMessageToUI(systemMessage);
-
-      if (messageText.toLowerCase().includes('weather')) {
-        try {
-          const locationMatch = messageText.match(/weather\s+(?:in|for|at)?\s+([a-zA-Z\s]+)/i);
-          const location = locationMatch ? locationMatch[1].trim() : 'New York';
-          
-          const weatherData = await this.client.getWeather(location);
-          
-          const weatherMessage: ChatMessage = {
-            message: `
-              Weather for ${weatherData.location}:
-              Temperature: ${weatherData.temperature}°C
-              Condition: ${weatherData.condition}
-              Humidity: ${weatherData.humidity}%
-              Wind Speed: ${weatherData.windSpeed} km/h
-            `,
-            sender: 'Weather Service',
-            timestamp: new Date().toISOString()
-          };
-          
-          this.addMessageToUI(weatherMessage);
-        } catch (error) {
-          console.error('Error getting weather:', error);
-          this.addMessageToUI({
-            message: `Sorry, I couldn't get the weather information.`,
-            sender: 'System',
-            timestamp: new Date().toISOString()
-          });
-        }
-      }
+      
+      this.addMessageToUI(response);
     } catch (error) {
       console.error('Error sending message:', error);
       this.addMessageToUI({
