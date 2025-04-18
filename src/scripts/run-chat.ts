@@ -21,6 +21,12 @@ const uiServer = http.createServer((req, res) => {
   if (url === '/chat.js') {
     res.writeHead(200, { 'Content-Type': 'application/javascript' });
     res.end(`
+      const apiKey = "${process.env.TONGYI_API_KEY}";
+      
+      const dashscopeScript = document.createElement('script');
+      dashscopeScript.src = 'https://cdn.jsdelivr.net/npm/dashscope-node/dist/index.browser.js';
+      document.head.appendChild(dashscopeScript);
+      
       class McpClient {
         constructor(baseUrl) {
           this.baseUrl = baseUrl;
@@ -56,6 +62,10 @@ const uiServer = http.createServer((req, res) => {
         constructor(serverUrl, containerId) {
           this.client = new McpClient(serverUrl);
           this.messages = [];
+          this.conversationHistory = [];
+          
+          this.useServerApi = true;
+          console.log('Using server-side API for chat');
           
           this.container = document.getElementById(containerId);
           if (!this.container) {
@@ -234,53 +244,75 @@ const uiServer = http.createServer((req, res) => {
           };
           this.addMessageToUI(userMessage);
           
+          this.conversationHistory.push({
+            role: "user",
+            content: messageText
+          });
+          
+          const isWeatherQuery = messageText.toLowerCase().includes('weather') || 
+                                messageText.includes('天气');
+          
           try {
-            const response = await this.client.callTool('chat', {
+            const result = await this.client.callTool('chat', {
               message: messageText,
-              sender: this.username || 'User'
+              sender: this.username || 'User',
+              conversationHistory: this.conversationHistory
             });
             
-            const systemMessage = {
-              message: \`I received your message: "\${messageText}"\`,
-              sender: 'System',
+            const aiReply = result?.output?.text || "抱歉，我无法理解你的问题。";
+            
+            this.conversationHistory.push({
+              role: "assistant",
+              content: aiReply
+            });
+            
+            const aiMessage = {
+              message: aiReply,
+              sender: "通义千问",
               timestamp: new Date().toISOString()
             };
-            this.addMessageToUI(systemMessage);
+            this.addMessageToUI(aiMessage);
             
-            if (messageText.toLowerCase().includes('weather')) {
-              try {
-                const locationMatch = messageText.match(/weather\\s+(?:in|for|at)?\\s+([a-zA-Z\\s]+)/i);
-                const location = locationMatch ? locationMatch[1].trim() : 'New York';
-                
-                const weatherData = await this.client.getWeather(location);
-                
-                const weatherMessage = {
-                  message: \`
-                    Weather for \${weatherData.location}:
-                    Temperature: \${weatherData.temperature}°C
-                    Condition: \${weatherData.condition}
-                    Humidity: \${weatherData.humidity}%
-                    Wind Speed: \${weatherData.windSpeed} km/h
-                  \`,
-                  sender: 'Weather Service',
-                  timestamp: new Date().toISOString()
-                };
-                
-                this.addMessageToUI(weatherMessage);
-              } catch (error) {
-                console.error('Error getting weather:', error);
-                this.addMessageToUI({
-                  message: \`Sorry, I couldn't get the weather information.\`,
-                  sender: 'System',
-                  timestamp: new Date().toISOString()
-                });
+            if (result?.output?.tool_calls && result.output.tool_calls.length > 0) {
+              const toolCall = result.output.tool_calls[0];
+              
+              if (toolCall.name === "getWeather") {
+                try {
+                  const location = JSON.parse(toolCall.parameters).location;
+                  const weatherData = await this.client.getWeather(location);
+                  
+                  const weatherMessage = {
+                    message: \`
+                      \${location}的天气情况:
+                      温度: \${weatherData.temperature}°C
+                      天气状况: \${weatherData.condition}
+                      湿度: \${weatherData.humidity}%
+                      风速: \${weatherData.windSpeed} km/h
+                    \`,
+                    sender: "天气服务",
+                    timestamp: new Date().toISOString()
+                  };
+                  
+                  this.addMessageToUI(weatherMessage);
+                } catch (error) {
+                  console.error('获取天气信息时出错:', error);
+                  this.addMessageToUI({
+                    message: \`抱歉，我无法获取天气信息。\`,
+                    sender: "系统",
+                    timestamp: new Date().toISOString()
+                  });
+                }
               }
             }
+            
+            if (this.conversationHistory.length > 10) {
+              this.conversationHistory = this.conversationHistory.slice(-10);
+            }
           } catch (error) {
-            console.error('Error sending message:', error);
+            console.error('发送消息时出错:', error);
             this.addMessageToUI({
-              message: \`Error: \${error.message}\`,
-              sender: 'System',
+              message: \`错误: \${error.message}\`,
+              sender: "系统",
               timestamp: new Date().toISOString()
             });
           }
@@ -311,8 +343,8 @@ const uiServer = http.createServer((req, res) => {
         
         addWelcomeMessage() {
           this.addMessageToUI({
-            message: 'Welcome to the MCP Chat Demo! You can ask about the weather by typing "weather in [location]".',
-            sender: 'System',
+            message: '欢迎使用通义千问聊天演示！您可以直接输入"你好"开始聊天，或者询问"北京的天气怎么样？"来测试天气查询功能。',
+            sender: '系统',
             timestamp: new Date().toISOString()
           });
         }

@@ -1,4 +1,8 @@
 import { McpClient } from '../client';
+import { createSDK } from 'dashscope-node';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
 
 export interface ChatMessage {
   message: string;
@@ -13,9 +17,15 @@ export class ChatPage {
   private messageList!: HTMLElement;
   private inputField!: HTMLInputElement;
   private username: string = "User";
+  private DashScopeAPI: any;
+  private conversationHistory: Array<{role: string, content: string}> = [];
 
   constructor(serverUrl: string, containerId: string) {
     this.client = new McpClient(serverUrl);
+    
+    this.DashScopeAPI = createSDK({
+      accessToken: process.env.TONGYI_API_KEY,
+    });
     
     this.container = document.getElementById(containerId) as HTMLElement;
     if (!this.container) {
@@ -194,18 +204,97 @@ export class ChatPage {
     };
     this.addMessageToUI(userMessage);
 
+    this.conversationHistory.push({
+      role: "user",
+      content: messageText
+    });
+
+    const isWeatherQuery = messageText.toLowerCase().includes('weather') || 
+                          messageText.includes('天气');
+
     try {
-      const response = await this.client.callTool('chat', {
-        message: messageText,
-        sender: this.username
-      });
+      const tools = isWeatherQuery ? [{
+        name: "getWeather",
+        description: "Get weather information for a location",
+        parameters: {
+          type: "object",
+          properties: {
+            location: {
+              type: "string",
+              description: "The city or location to get weather for"
+            }
+          },
+          required: ["location"]
+        }
+      }] : undefined;
+
+      const requestParams: any = {
+        model: 'qwen-max',
+        input: {
+          messages: this.conversationHistory
+        }
+      };
       
-      this.addMessageToUI(response);
+      if (isWeatherQuery && tools) {
+        requestParams.tools = tools;
+      }
+      
+      const result = await this.DashScopeAPI.chat.completion.request(requestParams);
+
+      const aiReply = result?.output?.text || "抱歉，我无法理解你的问题。";
+      
+      this.conversationHistory.push({
+        role: "assistant",
+        content: aiReply
+      });
+
+      const aiMessage: ChatMessage = {
+        message: aiReply,
+        sender: "通义千问",
+        timestamp: new Date().toISOString()
+      };
+      this.addMessageToUI(aiMessage);
+
+      if (result?.output?.tool_calls && result.output.tool_calls.length > 0) {
+        const toolCall = result.output.tool_calls[0];
+        
+        if (toolCall.name === "getWeather") {
+          try {
+            const location = JSON.parse(toolCall.parameters).location;
+            const weatherData = await this.client.getWeather(location);
+            
+            const weatherMessage: ChatMessage = {
+              message: `
+                ${location}的天气情况:
+                温度: ${weatherData.temperature}°C
+                天气状况: ${weatherData.condition}
+                湿度: ${weatherData.humidity}%
+                风速: ${weatherData.windSpeed} km/h
+              `,
+              sender: "天气服务",
+              timestamp: new Date().toISOString()
+            };
+            
+            this.addMessageToUI(weatherMessage);
+          } catch (error) {
+            console.error('获取天气信息时出错:', error);
+            this.addMessageToUI({
+              message: `抱歉，我无法获取天气信息。`,
+              sender: "系统",
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+      }
+
+      if (this.conversationHistory.length > 10) {
+        this.conversationHistory = this.conversationHistory.slice(-10);
+      }
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('发送消息时出错:', error);
       this.addMessageToUI({
-        message: `Error: ${error instanceof Error ? error.message : String(error)}`,
-        sender: 'System',
+        message: `错误: ${error instanceof Error ? error.message : String(error)}`,
+        sender: "系统",
         timestamp: new Date().toISOString()
       });
     }

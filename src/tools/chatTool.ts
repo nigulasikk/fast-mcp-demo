@@ -11,6 +11,10 @@ const DashScopeAPI = createSDK({
 export const ChatMessageParams = z.object({
   message: z.string().describe("The message to send"),
   sender: z.string().describe("The sender of the message"),
+  conversationHistory: z.array(z.object({
+    role: z.string(),
+    content: z.string()
+  })).optional().describe("Conversation history for context"),
 });
 
 export interface ChatMessage {
@@ -38,15 +42,48 @@ export const chatTool = {
     });
     
     try {
-      const result = await DashScopeAPI.chat.completion.request({
+      const isWeatherQuery = args.message.toLowerCase().includes('weather') || 
+                            args.message.includes('天气');
+      
+      const tools = isWeatherQuery ? [{
+        name: "getWeather",
+        description: "Get weather information for a location",
+        parameters: {
+          type: "object",
+          properties: {
+            location: {
+              type: "string",
+              description: "The city or location to get weather for"
+            }
+          },
+          required: ["location"]
+        }
+      }] : undefined;
+      
+      let messages = args.conversationHistory || conversationHistories[args.sender] || [];
+      
+      if (!args.conversationHistory) {
+        messages.push({
+          role: "user",
+          content: args.message
+        });
+      }
+      
+      let requestParams: any = {
         model: 'qwen-max',
         input: {
-          messages: conversationHistories[args.sender].map(msg => ({
+          messages: messages.map(msg => ({
             role: msg.role as "user" | "assistant" | "system",
             content: msg.content
           }))
-        },
-      });
+        }
+      };
+      
+      if (isWeatherQuery && tools) {
+        requestParams.tools = tools;
+      }
+      
+      const result = await DashScopeAPI.chat.completion.request(requestParams);
       
       const aiReply = result?.output?.text || "抱歉，我无法理解你的问题。";
       
