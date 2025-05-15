@@ -1,2 +1,2 @@
-modelcontextprotocol
+mcp>=1.8.1
 pydantic
